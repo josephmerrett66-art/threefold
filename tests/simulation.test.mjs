@@ -1,0 +1,22 @@
+import assert from 'node:assert/strict';
+import {Simulation,terrain,SIZE,DEFINITIONS} from '../dist/simulation.mjs';
+const tick=(s,seconds)=>{for(let i=0;i<seconds*20;i++)s.update(.05);};
+const s=new Simulation();assert.equal(s.people.length,3);
+const original=s.resources.wood;
+assert.equal(s.place('shelter',32,34).ok,true);assert.equal(s.resources.wood,original-18);
+assert.equal(s.place('shelter',32,34).ok,false);
+const invalid=s.place('well',54,0);assert.equal(invalid.ok,false);
+tick(s,100);assert.ok(s.buildings[0].complete,'settlers construct shelter');assert.ok(s.resources.wood>10,'settlers deliver gathered timber');
+const findSpot=(type)=>{for(let y=30;y<45;y++)for(let x=27;x<43;x++)if(!s.canPlace(type,x,y))return {x,y};throw Error('no spot');};
+s.resources.wood=100;s.resources.stone=40;
+for(const type of ['farm','stockpile','well','workshop','shelter']){let p=findSpot(type);assert.equal(s.place(type,p.x,p.y).ok,true);}
+tick(s,150);assert.ok(s.buildings.every(b=>b.complete),'all planned buildings finish');
+s.resources.food=60;tick(s,100);assert.ok(s.people.length>3,'spare housing and food support growth');
+const farm=s.buildings.find(b=>b.type==='farm');farm.harvest=0;tick(s,30);assert.ok(farm.harvest>0,'gardens replenish food');
+const snap=s.snapshot(),restored=Simulation.restore(snap);assert.deepEqual(restored.snapshot(),snap,'save round trip preserves simulation');tick(restored,180);assert.ok(restored.people.every(p=>Number.isFinite(p.x)&&Number.isFinite(p.y)),'loaded simulation continues');
+const c=new Simulation();const planned=c.place('shelter',32,34),wood=c.resources.wood;assert.ok(c.cancel(planned.id));assert.equal(c.resources.wood,wood+18);assert.equal(c.buildings.length,0);
+assert.throws(()=>Simulation.restore({version:2}));
+const p=new Simulation();p.priorities={wood:false,food:false,stone:false,build:false};const count=p.resources.wood;tick(p,20);assert.equal(p.resources.wood,count,'disabled gathering stays off');
+assert.equal(p.place('path',32,34).ok,true);assert.ok(p.pathSet.has('32,34'));assert.equal(p.place('path',32,34).ok,false);
+console.log('PASS: placement, construction, delivery, all buildings, growth, renewable food, save/load, cancellation, priorities, paths.');
+console.log(JSON.stringify({day:Math.floor(s.time/120)+1,population:s.people.length,buildings:s.buildings.length,resources:s.resources}));
