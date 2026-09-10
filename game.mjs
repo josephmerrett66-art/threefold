@@ -1,9 +1,10 @@
 import {Simulation,DEFINITIONS,SIZE} from './simulation.mjs';
-import {Renderer,iso} from './renderer.mjs';
+import {Renderer,iso} from './renderer.mjs?v=retro-2';
 const $=id=>document.getElementById(id);let sim=new Simulation(),speed=1,tool='inspect',selected=null,last=performance.now(),uiClock=0,saveClock=0;
 const renderer=new Renderer($('world'),$('minimap'));
 const icons={shelter:'⌂',farm:'♧',stockpile:'▤',well:'◉',workshop:'⚒',path:'⌁'},labels={shelter:'Shelter',farm:'Garden',stockpile:'Storehouse',well:'Well',workshop:'Workshop',path:'Path'};
 $('buildTools').innerHTML=Object.entries(DEFINITIONS).map(([key,d],i)=>`<button class="tool" data-tool="${key}" title="${d.name} — ${d.description}"><span class="toolicon">${icons[key]}</span><span>${labels[key]}</span><small>${d.wood?d.wood+' wood':''}${d.stone?' · '+d.stone+' stone':''}${!d.wood?'Free':''}</small></button>`).join('');
+renderer.ready.then(()=>{for(const type of Object.keys(DEFINITIONS)){const target=document.querySelector(`[data-tool="${type}"] .toolicon`);if(target){const img=document.createElement('img');img.src=renderer.icon(type);img.alt='';target.replaceChildren(img);}}});
 $('priorities').innerHTML=['build','food','wood','stone'].map(k=>`<button data-priority="${k}" class="active" aria-pressed="true">${{build:'Build',food:'Food',wood:'Wood',stone:'Stone'}[k]}</button>`).join('');
 function toast(message){$('toast').textContent=message;$('toast').classList.add('visible');clearTimeout(toast.timer);toast.timer=setTimeout(()=>$('toast').classList.remove('visible'),3200);}
 function selectTool(next){tool=next;renderer.tool=tool;selected=null;renderer.selected=null;$('inspector').hidden=true;document.body.classList.toggle('placing',tool!=='inspect');document.querySelectorAll('[data-tool]').forEach(b=>b.classList.toggle('active',b.dataset.tool===tool));updateUI();}
