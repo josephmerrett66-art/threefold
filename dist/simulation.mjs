@@ -1,4 +1,4 @@
-export const SIZE=76;
+export const SIZE=160;
 export const DEFINITIONS={
  shelter:{name:'Timber shelter',wood:18,stone:0,work:20,size:2,upkeep:{wood:4,stone:0},decay:.052,description:'A home for three. Rest restores energy faster, and spare homes welcome new settlers.'},
  farm:{name:'Garden plot',wood:10,stone:0,work:14,size:2,upkeep:{wood:3,stone:0},decay:.082,description:'A renewable source of food. Settlers tend and harvest it when food is needed.'},
@@ -16,16 +16,51 @@ export const TRAITS={
 };
 const TRAIT_KEYS=Object.keys(TRAITS);
 export const BURN_P=.040,BURN_B=.016;
-export const CAMP={x:35,y:37};
+export const CAMP={x:52,y:116};
 export function rand(n){let x=Math.sin(n*127.1+311.7)*43758.5453;return x-Math.floor(x);}
-export function terrain(x,y){if(x<0||y<0||x>=SIZE||y>=SIZE)return 'void';const river=54+Math.sin(y*.12)*4+Math.sin(y*.29)*1.4;let d=Math.abs(x-river);if(d<2.1)return 'water';if(d<3.2)return 'sand';return 'grass';}
+const hash2=(x,y,s)=>{let h=Math.imul(x|0,374761393)^Math.imul(y|0,668265263)^Math.imul(s|0,1442695041);h=Math.imul(h^(h>>>13),1274126177);return ((h^(h>>>16))>>>0)/4294967295;};
+function vnoise(x,y,s){const xi=Math.floor(x),yi=Math.floor(y),xf=x-xi,yf=y-yi,u=xf*xf*(3-2*xf),v=yf*yf*(3-2*yf);
+ const a=hash2(xi,yi,s),b=hash2(xi+1,yi,s),c=hash2(xi,yi+1,s),d=hash2(xi+1,yi+1,s);
+ return a+(b-a)*u+(c-a)*v+(a-b-c+d)*u*v;}
+function fbm(x,y,s,oct=4){let sum=0,amp=.5,f=1,norm=0;for(let i=0;i<oct;i++){sum+=vnoise(x*f,y*f,s+i*37)*amp;norm+=amp;f*=2;amp*=.5;}return sum/norm;}
+export const river=y=>96+Math.sin(y*.055)*17+Math.sin(y*.021)*10;
+export const brook=y=>38+Math.sin(y*.07)*9+Math.sin(y*.033)*6;
+export const KINDS=['grass','sand','water','scree','rock'];
+const rawElevation=(x,y)=>{const base=fbm(x*.0105,y*.0105,7,4),nx=x/SIZE,ny=y/SIZE;
+ const corner=Math.max(0,1-Math.hypot(nx*1.05,ny*.92)*1.28),region=corner*corner*(3-2*corner);
+ return Math.max(0,Math.min(1,base*.66+region*.80-.13));};
+const waterDistance=(x,y)=>Math.min(Math.abs(x-river(y)),Math.abs(x-brook(y)));
+let KIND=null,ELEV=null,FERT=null,BANKS=null;
+function world(){if(KIND)return;KIND=new Uint8Array(SIZE*SIZE);ELEV=new Uint8Array(SIZE*SIZE);FERT=new Uint8Array(SIZE*SIZE);BANKS=[];
+ for(let y=0;y<SIZE;y++)for(let x=0;x<SIZE;x++){const i=y*SIZE+x,e=rawElevation(x,y),dr=Math.abs(x-river(y)),db=Math.abs(x-brook(y));
+  let k=0;if(dr<2.7||(db<1.5&&y>26))k=2;else if(dr<4.1||(db<2.8&&y>26))k=1;else if(e>.62)k=4;else if(e>.50)k=3;
+  KIND[i]=k;ELEV[i]=Math.round(e*255);
+  const wet=Math.max(0,1-waterDistance(x,y)/26);
+  FERT[i]=Math.round(Math.max(0,Math.min(1,fbm(x*.03+50,y*.03+50,19,3)*.55+wet*.5-e*.55+.18))*255);
+  if(k===1&&(x+y)%3===0)BANKS.push({x,y});}}
+export function terrain(x,y){if(x<0||y<0||x>=SIZE||y>=SIZE)return 'void';world();return KINDS[KIND[y*SIZE+x]];}
+export function elevation(x,y){if(x<0||y<0||x>=SIZE||y>=SIZE)return 0;world();return ELEV[y*SIZE+x]/255;}
+export function fertility(x,y){if(x<0||y<0||x>=SIZE||y>=SIZE)return 0;world();return FERT[y*SIZE+x]/255;}
+export function banks(){world();return BANKS;}
+// Hard going underfoot: the uplands cost time, which is part of what makes where you settle matter.
+export function woodland(x,y){return fbm(x*.035+90,y*.035+90,31,3);}
+export function footing(x,y){const k=terrain(x,y);return k==='rock'?.68:k==='scree'?.82:k==='sand'?.92:1;}
 const distance=(a,b)=>Math.abs(a.x-b.x)+Math.abs(a.y-b.y);
 const upkeepOf=type=>DEFINITIONS[type].upkeep||{wood:0,stone:0};
 export class Simulation{
- constructor(){this.time=0;this.resources={wood:28,food:24,stone:0};this.buildings=[];this.paths=[];this.people=[];this.nodes=[];this.events=[];this.bonds=[];this.priorities={wood:true,food:true,stone:true,build:true};this.nextId=1;this.arrival=0;this.regrow=0;this.warm=true;this.version=2;this.revision=0;
- for(let y=2;y<SIZE-2;y++)for(let x=2;x<SIZE-2;x++){if(terrain(x,y)!=='grass'||Math.hypot(x-CAMP.x,y-CAMP.y)<6)continue;let r=rand(x+y*SIZE);const forest=(Math.sin(x*.23)+Math.cos(y*.26))*.06;if(r<.13+forest)this.nodes.push({id:this.nextId++,x,y,type:'tree',amount:12,variant:Math.floor(rand(x*13+y)*3)});else if(r>.975)this.nodes.push({id:this.nextId++,x,y,type:'stone',amount:24});else if(r>.954)this.nodes.push({id:this.nextId++,x,y,type:'berries',amount:18});}
+ constructor(){this.time=0;this.resources={wood:28,food:24,stone:0};this.buildings=[];this.paths=[];this.people=[];this.nodes=[];this.events=[];this.bonds=[];this.priorities={wood:true,food:true,stone:true,build:true};this.nextId=1;this.arrival=0;this.regrow=0;this.warm=true;this.version=3;this.revision=0;
+ for(let y=2;y<SIZE-2;y++)for(let x=2;x<SIZE-2;x++){const k=terrain(x,y);if(k==='water'||k==='void')continue;if(Math.hypot(x-CAMP.x,y-CAMP.y)<7)continue;
+  const r=rand(x+y*SIZE),soil=fertility(x,y),wood=woodland(x,y);
+  if(k==='rock'||k==='scree'){
+   if(r<(k==='rock'?.105:.055))this.nodes.push({id:this.nextId++,x,y,type:'stone',amount:24});
+   else if(wood>.47&&r>.55)this.nodes.push({id:this.nextId++,x,y,type:'tree',amount:10,variant:0});
+  }else if(k==='grass'){
+   if(wood>.44&&r<(wood-.30)*1.9)this.nodes.push({id:this.nextId++,x,y,type:'tree',amount:soil>.54?16:12,variant:soil>.54?2:1});
+   else if(r>.9915)this.nodes.push({id:this.nextId++,x,y,type:'stone',amount:14});
+   else if(r>.962&&soil<.55)this.nodes.push({id:this.nextId++,x,y,type:'berries',amount:18});
+  }else if(k==='sand'&&r>.986)this.nodes.push({id:this.nextId++,x,y,type:'berries',amount:18});}
  // The founders are deliberately unalike; watching them is meant to be worth doing.
- for(const [i,[name,trait]]of [['Alda','food'],['Bram','wood'],['Mira','build']].entries())this.addPerson(name,34+i,37,i,trait);
+ for(const [i,[name,trait]]of [['Alda','food'],['Bram','wood'],['Mira','build']].entries())this.addPerson(name,CAMP.x-1+i,CAMP.y,i,trait);
  this.log('Three people. An entire world ahead.');this.reindex();}
  addPerson(name,x,y,i=this.people.length,trait){const seed=this.nextId*17+i*7;const key=trait||TRAIT_KEYS[Math.floor(rand(seed)*TRAIT_KEYS.length)%TRAIT_KEYS.length];
  const skills={wood:1,stone:1,food:1,build:1};skills[key]=1.35;
@@ -39,7 +74,7 @@ export class Simulation{
  walkable(x,y){return terrain(x,y)!=='water'&&terrain(x,y)!=='void'&&!this.blocked.has(x+','+y)&&!(this.nodeMap.get(x+','+y)?.type==='tree');}
  routeTo(p,target){const sx=Math.round(p.x),sy=Math.round(p.y);let goals=[];if(this.walkable(target.x,target.y))goals.push([target.x,target.y]);const size=target.type&&DEFINITIONS[target.type]?DEFINITIONS[target.type].size:1;for(let y=target.y-1;y<=target.y+size;y++)for(let x=target.x-1;x<=target.x+size;x++)if((x<target.x||x>=target.x+size||y<target.y||y>=target.y+size)&&this.walkable(x,y))goals.push([x,y]);if(!goals.length)return null;
  const goalSet=new Set(goals.map(g=>g.join(','))),start=sx+','+sy;if(goalSet.has(start))return [];const queue=[[sx,sy]],prev=new Map([[start,null]]);let end=null;
- for(let i=0;i<queue.length&&i<7000;i++){const [x,y]=queue[i];for(const [dx,dy]of [[1,0],[0,1],[-1,0],[0,-1]]){const nx=x+dx,ny=y+dy,k=nx+','+ny;if(prev.has(k)||!this.walkable(nx,ny))continue;prev.set(k,x+','+y);if(goalSet.has(k)){end=k;break;}queue.push([nx,ny]);}if(end)break;}
+ for(let i=0;i<queue.length&&i<30000;i++){const [x,y]=queue[i];for(const [dx,dy]of [[1,0],[0,1],[-1,0],[0,-1]]){const nx=x+dx,ny=y+dy,k=nx+','+ny;if(prev.has(k)||!this.walkable(nx,ny))continue;prev.set(k,x+','+y);if(goalSet.has(k)){end=k;break;}queue.push([nx,ny]);}if(end)break;}
  if(!end)return null;const result=[];while(end!==start){let [x,y]=end.split(',').map(Number);result.unshift({x,y});end=prev.get(end);}return result;}
  canPlace(type,x,y){const d=DEFINITIONS[type];if(!d)return 'Unknown building.';if(!Number.isInteger(x)||!Number.isInteger(y))return 'Choose a tile.';
  if(type==='clear'){if(x<1||y<1||x>=SIZE-1||y>=SIZE-1)return 'Choose somewhere inside the valley.';const n=this.nodeMap.get(x+','+y);if(!n)return 'There is nothing here to clear.';if(n.marked)return 'This is already marked for clearing.';return null;}
@@ -49,7 +84,7 @@ export class Simulation{
  place(type,x,y){const error=this.canPlace(type,x,y);if(error)return {ok:false,error};const d=DEFINITIONS[type];
  if(type==='clear'){const n=this.nodeMap.get(x+','+y);n.marked=true;this.revision++;return {ok:true,id:n.id};}
  if(type==='path'){this.paths.push({x,y});this.pathSet.add(x+','+y);this.revision++;return {ok:true};}
- const temp={id:this.nextId++,type,x,y,progress:0,complete:false,condition:100,harvest:24};this.buildings.push(temp);this.reindex();let reachable=this.people.some(p=>this.routeTo(p,temp)!==null);let trapped=this.people.some(p=>!this.walkable(Math.round(p.x),Math.round(p.y)));if(!reachable||trapped){this.buildings.pop();this.reindex();return {ok:false,error:'Leave a route for the settlers to reach it.'};}
+ const temp={id:this.nextId++,type,x,y,progress:0,complete:false,condition:100,soil:fertility(x,y),harvest:24};this.buildings.push(temp);this.reindex();let reachable=this.people.some(p=>this.routeTo(p,temp)!==null);let trapped=this.people.some(p=>!this.walkable(Math.round(p.x),Math.round(p.y)));if(!reachable||trapped){this.buildings.pop();this.reindex();return {ok:false,error:'Leave a route for the settlers to reach it.'};}
  this.resources.wood-=d.wood;this.resources.stone-=d.stone;this.revision++;this.log(`${d.name} planned. Materials reserved.`);return {ok:true,id:temp.id};}
  cancel(id){const b=this.buildings.find(b=>b.id===id);if(!b||b.complete)return false;this.resources.wood+=DEFINITIONS[b.type].wood;this.resources.stone+=DEFINITIONS[b.type].stone;this.buildings=this.buildings.filter(x=>x.id!==id);for(const p of this.people)if(p.task?.id===id){p.task=null;p.route=[];}this.reindex();this.revision++;return true;}
  unmark(id){const n=this.nodes.find(n=>n.id===id);if(!n||!n.marked)return false;delete n.marked;for(const p of this.people)if(p.task?.kind==='fell'&&p.task.id===id){p.task=null;p.route=[];}this.revision++;return true;}
@@ -61,7 +96,7 @@ export class Simulation{
  choose(p){const t=this.targets();
  if(p.carrying){this.assign(p,'deliver',this.storeFor(p),'Carrying '+p.carrying.type);return;}
  if(p.hunger>45&&this.resources.food>=4){this.assign(p,'eat',this.storeFor(p),'Going to eat');return;}
- if(p.thirst>65){let wells=this.buildings.filter(b=>b.complete&&b.type==='well'&&b.condition>30);if(this.assignNearest(p,'drink',wells,'Fetching water'))return;let banks=[];for(let y=4;y<SIZE-4;y+=4)for(let x=46;x<63;x++)if(terrain(x,y)==='sand')banks.push({x,y});if(this.assignNearest(p,'drink',banks,'Walking to the river'))return;}
+ if(p.thirst>65){let wells=this.buildings.filter(b=>b.complete&&b.type==='well'&&b.condition>30);if(this.assignNearest(p,'drink',wells,'Fetching water'))return;if(this.assignNearest(p,'drink',banks(),'Walking to the river'))return;}
  if(p.energy<23){const homes=this.buildings.filter(b=>b.complete&&b.type==='shelter');if(this.assignNearest(p,'rest',homes,'Returning home'))return;this.assign(p,'rest',CAMP,'Resting by the fire');return;}
  if(p.morale<28&&this.resources.wood>12){this.assign(p,'socialise',CAMP,'Walking to the fire');return;}
  const occupied=new Set(this.people.filter(q=>q.id!==p.id&&q.task).map(q=>q.task.id));
@@ -89,7 +124,7 @@ export class Simulation{
  this.nodes.push({id:this.nextId++,x,y,type:'tree',amount:12,variant:Math.floor(rand(x*13+y)*3)});this.reindex();this.revision++;}
  update(dt){this.time+=dt;
  for(const b of this.buildings){if(!b.complete)continue;const d=DEFINITIONS[b.type];b.condition=Math.max(0,(b.condition??100)-dt*d.decay);
-  if(b.type==='farm')b.harvest=Math.min(30,b.harvest+dt*.22*(.35+.65*b.condition/100));}
+  if(b.type==='farm')b.harvest=Math.min(30,b.harvest+dt*.22*(.35+.65*b.condition/100)*(.45+1.15*(b.soil??.5)));}
  this.regrow+=dt;if(this.regrow>15){this.regrow=0;this.growForest();}
  // Hearths and cooking burn timber continuously, so a larger settlement is a larger appetite.
  const burn=dt*(BURN_P*this.people.length+BURN_B*this.buildings.filter(b=>b.complete).length);const lit=this.resources.wood>0;this.resources.wood=Math.max(0,this.resources.wood-burn);
@@ -97,7 +132,7 @@ export class Simulation{
  this.warm=this.resources.wood>0;
  for(const p of this.people){p.hunger=Math.min(100,p.hunger+dt*.17);p.thirst=Math.min(100,p.thirst+dt*.12);p.energy=Math.max(0,p.energy-dt*.10);p.morale=Math.max(0,p.morale-dt*(this.warm===false?.14:.06));
  if(!p.task)this.choose(p);if(!p.task)continue;
- if(p.route.length){const t=p.route[0];if(!this.walkable(t.x,t.y)){p.task=null;p.route=[];continue;}const dx=t.x-p.x,dy=t.y-p.y,len=Math.hypot(dx,dy);let step=dt*1.45*p.speed*(this.pathSet.has(Math.round(p.x)+','+Math.round(p.y))?1.45:1)*(p.hunger>85?.65:1);if(len<=step){p.x=t.x;p.y=t.y;p.route.shift();}else{p.x+=dx/len*step;p.y+=dy/len*step;}continue;}
+ if(p.route.length){const t=p.route[0];if(!this.walkable(t.x,t.y)){p.task=null;p.route=[];continue;}const dx=t.x-p.x,dy=t.y-p.y,len=Math.hypot(dx,dy);let step=dt*1.45*p.speed*footing(Math.round(p.x),Math.round(p.y))*(this.pathSet.has(Math.round(p.x)+','+Math.round(p.y))?1.45:1)*(p.hunger>85?.65:1);if(len<=step){p.x=t.x;p.y=t.y;p.route.shift();}else{p.x+=dx/len*step;p.y+=dy/len*step;}continue;}
  p.timer+=dt;const task=p.task;const node=this.nodes.find(n=>n.id===task.id),building=this.buildings.find(b=>b.id===task.id);
  const vigour=(p.energy<15?.5:1)*(p.morale<30?.75:1);
  if(task.kind==='build'){if(!building||building.complete){p.task=null;continue;}building.progress+=dt*vigour*p.skills.build;p.action='Building '+DEFINITIONS[building.type].name.toLowerCase();if(building.progress>=DEFINITIONS[building.type].work){building.complete=true;building.condition=100;this.revision++;this.log(`${DEFINITIONS[building.type].name} completed by ${p.name}.`);p.history=`Helped build a ${DEFINITIONS[building.type].name.toLowerCase()}.`;this.learn(p,'build');p.task=null;}}
@@ -122,12 +157,12 @@ export class Simulation{
  else if(task.kind==='idle'&&p.timer>5)p.task=null;
  }
  const capacity=this.buildings.filter(b=>b.type==='shelter'&&b.complete).length*3;
- if(capacity>this.people.length&&this.resources.food>=24&&this.people.length<12){this.arrival+=dt;if(this.arrival>90){const names=['Rowan','Elin','Tomas','Fern','Orin','Lena','Arlen','Iris','Wren'];this.addPerson(names[this.people.length-3]||'Traveller',CAMP.x,CAMP.y);this.resources.food-=8;this.arrival=0;this.log(`${this.people.at(-1).name} has joined the settlement.`);}}else this.arrival=0;
+ if(capacity>this.people.length&&this.resources.food>=24&&this.people.length<90){this.arrival+=dt;if(this.arrival>90){const names=['Rowan','Elin','Tomas','Fern','Orin','Lena','Arlen','Iris','Wren'];this.addPerson(names[this.people.length-3]||'Traveller',CAMP.x,CAMP.y);this.resources.food-=8;this.arrival=0;this.log(`${this.people.at(-1).name} has joined the settlement.`);}}else this.arrival=0;
  }
  learn(p,skill){if(p.skills[skill]!==undefined)p.skills[skill]=Math.min(2.2,p.skills[skill]+.012);}
- snapshot(){return JSON.parse(JSON.stringify({version:2,time:this.time,resources:this.resources,buildings:this.buildings,paths:this.paths,people:this.people,nodes:this.nodes,events:this.events,bonds:this.bonds,priorities:this.priorities,nextId:this.nextId,arrival:this.arrival,regrow:this.regrow}));}
- static restore(data){if(!data||data.version!==2||!Array.isArray(data.people)||!data.people.length||!Array.isArray(data.buildings)||!Array.isArray(data.nodes)||!Array.isArray(data.paths)||!data.resources||!Number.isFinite(data.time))throw Error('This save could not be read.');for(const k of ['wood','food','stone'])if(!Number.isFinite(data.resources[k])||data.resources[k]<0)throw Error('Invalid resources.');for(const b of data.buildings)if(!DEFINITIONS[b.type]||DEFINITIONS[b.type].order)throw Error('Invalid building.');for(const p of data.people)if(!Number.isFinite(p.x)||!Number.isFinite(p.y)||!Array.isArray(p.route))throw Error('Invalid settler.');const s=new Simulation();Object.assign(s,JSON.parse(JSON.stringify(data)));s.bonds=Array.isArray(s.bonds)?s.bonds:[];s.regrow=Number.isFinite(s.regrow)?s.regrow:0;
- for(const b of s.buildings)if(!Number.isFinite(b.condition))b.condition=100;
+ snapshot(){return JSON.parse(JSON.stringify({version:3,time:this.time,resources:this.resources,buildings:this.buildings,paths:this.paths,people:this.people,nodes:this.nodes,events:this.events,bonds:this.bonds,priorities:this.priorities,nextId:this.nextId,arrival:this.arrival,regrow:this.regrow}));}
+ static restore(data){if(!data||data.version!==3||!Array.isArray(data.people)||!data.people.length||!Array.isArray(data.buildings)||!Array.isArray(data.nodes)||!Array.isArray(data.paths)||!data.resources||!Number.isFinite(data.time))throw Error('This save could not be read.');for(const k of ['wood','food','stone'])if(!Number.isFinite(data.resources[k])||data.resources[k]<0)throw Error('Invalid resources.');for(const b of data.buildings)if(!DEFINITIONS[b.type]||DEFINITIONS[b.type].order)throw Error('Invalid building.');for(const p of data.people)if(!Number.isFinite(p.x)||!Number.isFinite(p.y)||!Array.isArray(p.route))throw Error('Invalid settler.');const s=new Simulation();Object.assign(s,JSON.parse(JSON.stringify(data)));s.bonds=Array.isArray(s.bonds)?s.bonds:[];s.regrow=Number.isFinite(s.regrow)?s.regrow:0;
+ for(const b of s.buildings){if(!Number.isFinite(b.condition))b.condition=100;if(!Number.isFinite(b.soil))b.soil=fertility(b.x,b.y);}
  for(const [i,p]of s.people.entries()){if(!TRAITS[p.trait])p.trait=TRAIT_KEYS[i%TRAIT_KEYS.length];if(!Number.isFinite(p.speed))p.speed=1;if(!Number.isFinite(p.morale))p.morale=72;if(!p.skills)p.skills={wood:1,stone:1,food:1,build:1};for(const k of TRAIT_KEYS)if(!Number.isFinite(p.skills[k]))p.skills[k]=1;}
  s.revision++;s.reindex();return s;}
 }

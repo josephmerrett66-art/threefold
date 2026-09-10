@@ -1,6 +1,6 @@
 # Threefold
 
-A playable first prototype for a godlike civilisation-building sandbox. Starts with three named founders in an isometric woodland valley.
+A playable first prototype for a godlike civilisation-building sandbox. Starts with three named founders in an isometric valley of woodland, river meadow and upland rock.
 
 ## Run locally
 
@@ -14,6 +14,8 @@ The settlement consumes what it gathers. Hearths burn timber every day in propor
 
 Each settler is a particular person. Alda grows, Bram forests, Mira builds; later arrivals bring their own trade. Everyone walks at their own pace, starts ahead in their own craft, and gets better at whatever they actually do. Open a settler to see their trade, their spirits, and how far their skills have come. When there is no pressing work they go and sit at the fire together, and lasting acquaintances are recorded in the chronicle.
 
+The valley is 160 x 160 tiles and has opinions about what you can do where. An upland massif fills the north-west: hard going underfoot, thin soil, and where stone is plentiful. Two watercourses run south through lowland meadow and oak woodland, and the ground beside them carries the richest soil. Pine grows on the tops, broadleaf on good soil, berries on dry ground, and boulders turn up in the lowlands only occasionally. A garden yields in proportion to the soil under it, so where you put one matters as much as whether you build it. Click any patch of ground to read its soil and height, and the hint bar names the soil under the cursor while you site a garden.
+
 Use the Clear tool to mark trees, rock or scrub for felling. A settler fells it, carries everything standing there home, and leaves bare ground you can build on. Woodland can only be worked from its edge, so clearing a dense stand takes several passes inward. Away from buildings and paths, the forest slowly grows back.
 
 Drag to pan, scroll or use +/− to zoom, WASD/arrows to pan, Home to return, Space to pause, 1–7 to choose tools, Escape to observe. Click people or buildings to inspect. Draw free paths by dragging in Path mode, and mark ground by dragging in Clear mode; right-drag to pan in either. Touch supports drag and pinch.
@@ -22,9 +24,10 @@ Automatic local saves run every 30 seconds. Save writes a separate checkpoint; L
 
 ## Scope
 
-- 76 × 76 tile valley; three founders, up to 12 settlers.
+- 160 x 160 tile valley of upland rock, scree, river meadow and woodland; three founders, growing as far as your housing allows.
 - Autonomous needs, resource collection/delivery, construction, rest, hydration, agriculture, socialising, and arrivals.
 - Ongoing consumption: hearth fuel, meals, and building upkeep, so a finished settlement still has work to do.
+- Terrain that matters: soil quality drives garden yield, high ground slows travel, and stone belongs to the hills.
 - Distinct settlers: per-person trade, walking pace, morale, and skills that improve with practice.
 - Seven construction tools including land clearing, work priorities, inspection, chronicle, minimap, camera, time controls, and local persistence.
 - Original raster building and foliage sprites, textured grass and curved riverbanks, blue-accented animated settlers, and a classic parchment command interface. The sprite atlas is in `dist/assets/retro-atlas.png`.
@@ -38,6 +41,6 @@ Automatic local saves run every 30 seconds. Save writes a separate checkpoint; L
 
 Run `node tests/simulation.test.mjs` for the simulation checks.
 
-Saves from builds before the consumption update cannot be read; an incompatible autosave is discarded quietly on startup.
+Saves from earlier builds cannot be read. The save version rises whenever the world itself changes, so an old valley is never loaded into a new map; an incompatible autosave is discarded quietly on startup.
 
 Validation: JavaScript syntax and simulation tests cover construction, delivered resources, every building type, growth, renewable food, save/load continuity, cancellation refunds, work priorities, paths, hearth consumption, disrepair and repair, the absence of idle settlers in a settled valley, founder traits and learned skill, and land clearing and regrowth. Native canvas checks verified all six atlas sprites, construction icons, scene rendering, camera coordinate round trips, and cursor-anchored zoom. Browser UI testing was not requested and has not been performed. A live supported WebMCP context was unavailable, so that optional integration has not been verified in a browser.
