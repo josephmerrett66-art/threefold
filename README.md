@@ -19,10 +19,10 @@ Automatic local saves run every 30 seconds. Save writes a separate checkpoint; L
 - 76 × 76 tile valley; three founders, up to 12 settlers.
 - Autonomous needs, resource collection/delivery, construction, rest, hydration, agriculture, and arrivals.
 - Six construction tools, work priorities, inspection, chronicle, minimap, camera, time controls, and local persistence.
-- Procedural pixel renderer with material details and working/carrying/walking animations. This is prototype art, not the final production asset pipeline.
+- Original raster building and foliage sprites, textured grass and curved riverbanks, blue-accented animated settlers, and a classic parchment command interface. The sprite atlas is in `dist/assets/retro-atlas.png`.
 - No combat, generations, cultural progression, structural demolition, or multiple maps yet. Hunger slows movement; nobody dies. The founding campfire is a starting landmark.
 - Desktop is the primary play surface. Touch layouts retain construction and camera controls; the detailed settlement sidebar is hidden on narrow screens.
-- No external runtime dependencies; optional Google Fonts fall back to local system fonts.
+- No external runtime dependencies or web fonts.
 
 ## Code
 
@@ -30,4 +30,4 @@ Automatic local saves run every 30 seconds. Save writes a separate checkpoint; L
 
 Run `node tests/simulation.test.mjs` for the simulation checks.
 
-Validation: JavaScript syntax and simulation tests cover construction, delivered resources, every building type, growth, renewable food, save/load continuity, cancellation refunds, work priorities, and paths. Browser UI testing was not requested and has not been performed. A live supported WebMCP context was unavailable, so that optional integration has not been verified in a browser.
+Validation: JavaScript syntax and simulation tests cover construction, delivered resources, every building type, growth, renewable food, save/load continuity, cancellation refunds, work priorities, and paths. Native canvas checks verified all six atlas sprites, construction icons, scene rendering, camera coordinate round trips, and cursor-anchored zoom. Browser UI testing was not requested and has not been performed. A live supported WebMCP context was unavailable, so that optional integration has not been verified in a browser.
