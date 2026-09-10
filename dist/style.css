@@ -5,3 +5,12 @@
 @media(max-width:680px){.topbar{height:36px;padding:0 5px;gap:10px}.brand{display:none}.resources{gap:12px}.resources strong{font-size:13px;min-width:18px}.resource{font-size:16px}.timepanel strong{display:none}.timepanel{right:38px}.speeds button{min-width:24px}.mapgroup{display:none}.bottom{height:160px}.toolbar{height:126px;right:0;padding:22px 5px 5px;gap:3px}.toolbar:before{font-size:13px;top:4px;left:8px}.tool{width:calc((100vw - 40px)/7);min-width:0;height:91px}.tool .toolicon{height:42px}.tool>span:not(.toolicon){font-size:10px}.tool small{font-size:9px;max-width:100%;white-space:nowrap}.bottomline{padding:2px 5px}.bottomline>div{gap:9px}.bottomline button{padding:3px 9px}#saveStatus{display:none}.hint{bottom:169px;padding:6px 12px;font-size:12px}.hint>span{font-size:10px}.inspector{width:215px;top:46px;left:8px;padding:12px}.inspector p{font-size:13px}dialog{max-width:calc(100% - 20px);padding:20px}}
 /* Keep the settlement panel above the continuous bottom frame. */
 .leftpanel{z-index:2}
+
+/* Settler trade, learned skills, upkeep warnings and clearing orders. */
+.inspector .trade{margin:.1rem 0 .45rem;font-size:.74rem;letter-spacing:.02em;color:#c8b98d;font-style:italic}
+.inspector .skills{display:grid;grid-template-columns:1fr 1fr;gap:.18rem .5rem;margin:.5rem 0 .35rem;font-size:.7rem}
+.inspector .skills span{display:flex;justify-content:space-between;gap:.4rem;color:#b9ae8b;border-bottom:1px dotted #6d654a55;padding-bottom:.1rem}
+.inspector .skills b{font-weight:600;color:#e2d6ac}
+.inspector .marked{color:#e0a184;font-size:.74rem;margin:.4rem 0 .3rem}
+.warn{color:#e0a184}
+#settlementStatus .muted,#settlementStatus .warn{font-size:.72rem}
